@@ -3,6 +3,8 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const mysql = require('mysql2/promise');
 const [TransactionColumns, StatusColumns, CardPColumns, ChargebackColumns, formatDate] = require('./Components/Utillity')
+const fs = require('fs');
+const path = require('path');
 
 require('dotenv').config();
 
@@ -36,7 +38,7 @@ app.post('/transaction/upload', upload.single('excelFile'), async (req, res) => 
                     row[i] = '0';
                 }
             }
-            
+
             row[2] = formatDate(row[2]); // Column 3
             row[3] = formatDate(row[3]); // Column 4
             row[60] = formatDate(row[60]); // Column 61
@@ -45,12 +47,12 @@ app.post('/transaction/upload', upload.single('excelFile'), async (req, res) => 
             const dateObject = new Date(currentTimestamp);
             const databaseTimestampString = dateObject.toISOString().slice(0, 19).replace('T', ' ');
             row.push(databaseTimestampString);
-            
-            let newRow = [row[0], row[2],row[4],row[61],row[62]]
+
+            let newRow = [row[0], row[2], row[4], row[61], row[62]]
 
             const valuesString = row.map(value => `"${value}"`).join(', ');
             const updateClause = TransactionColumns.map(TransactionColumns => `${TransactionColumns}=VALUES(${TransactionColumns})`).join(', ');
-            
+
             const newvaluesString = newRow.map(value => `"${value}"`).join(', ');
             const newupdateClause = StatusColumns.map(StatusColumns => `${StatusColumns}=VALUES(${StatusColumns})`).join(', ');
 
@@ -99,8 +101,8 @@ app.post('/cardProcessed/upload', upload.single('excelFile'), async (req, res) =
             row.push(databaseTimestampString);
 
             const valuesString = row.map(value => `"${value}"`).join(', ');
-            const updateClause = CardPColumns.map(CardPColumns => `${CardPcolumns}=VALUES(${CardPColumns})`).join(', ');
-   
+            const updateClause = CardPColumns.map(CardPColumns => `${CardPColumns}=VALUES(${CardPColumns})`).join(', ');
+
             const query = `INSERT INTO cardprocessed VALUES (${valuesString}) ON DUPLICATE KEY UPDATE ${updateClause};`;
             await connection.query(query);
         })
@@ -144,7 +146,7 @@ app.post('/chargeback/upload', upload.single('excelFile'), async (req, res) => {
 
             const valuesString = row.map(value => `"${value}"`).join(', ');
             const updateClause = ChargebackColumns.map(ChargebackColumns => `${ChargebackColumns}=VALUES(${ChargebackColumns})`).join(', ');
-   
+
             const query = `INSERT INTO chargeback VALUES (${valuesString}) ON DUPLICATE KEY UPDATE ${updateClause};`;
             await connection.query(query);
         })
@@ -161,7 +163,8 @@ app.post('/chargeback/upload', upload.single('excelFile'), async (req, res) => {
 app.get('/transaction/view', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.query('SELECT * FROM transaction LIMIT 10');
+        let myfile = fs.readFileSync(path.join(__dirname, 'DatabaseQueries', '05.InitialTableQuery.txt'), { encoding: 'utf8' });
+        const [rows] = await connection.query(`${myfile}`);
         await connection.end();
         res.status(200).json(rows);
     } catch (error) {
@@ -169,6 +172,10 @@ app.get('/transaction/view', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
+
+
+
+
 
 
 // Start the server

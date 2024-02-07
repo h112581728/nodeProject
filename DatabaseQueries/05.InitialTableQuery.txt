@@ -1,0 +1,69 @@
+SELECT
+    transaction.rtrn,
+    transaction.transaction_date_pst,
+    transaction.transaction_status,
+    transaction.transaction_amount_in_us_dollars,
+    transaction.transaction_fee_or_commission_USD,
+    transaction.mto,
+    transaction.msb,
+    transaction.method_of_payment,
+    transaction.debit_card_issuing_network,
+    transaction.regulated,
+    transaction.method_of_payout,
+    transaction.debit_card_network_fees,
+    transaction.debit_card_interchange_fees,
+    CASE
+        WHEN method_of_payment = 'Card' THEN (
+            SELECT settlement_date
+            FROM cardprocessed
+            WHERE
+                CONCAT(left(cardprocessed.reference_id,3), "-", MID(cardprocessed.reference_id, 4,3), "0", MID(cardprocessed.reference_id,7,5), "-0",RIGHT(cardprocessed.reference_id,3)) = transaction.rtrn
+                and cardprocessed.type = 'Purchase'
+                and cardprocessed.status = 'Complete'
+        )
+        WHEN method_of_payment = 'ACH' THEN (
+            SELECT last_status_updated
+            FROM status
+            WHERE
+                status.rtrn = transaction.rtrn
+                and status.transaction_status = "Processed"
+        )
+        ELSE '0'
+    END AS processed_date,
+    CASE
+        WHEN method_of_payment = 'Card' THEN (
+            SELECT settlement_date
+            FROM cardprocessed
+            WHERE
+                CONCAT(left(cardprocessed.reference_id,3), "-", MID(cardprocessed.reference_id, 4,3), "0", MID(cardprocessed.reference_id,7,5), "-0",RIGHT(cardprocessed.reference_id,3)) = transaction.rtrn
+                and cardprocessed.`type` = 'Purchase-Void'
+                and cardprocessed.status = 'Complete'
+        )
+        WHEN method_of_payment = 'ACH' THEN (
+            SELECT last_status_updated
+            FROM status
+            WHERE
+                status.rtrn = transaction.rtrn
+                and status.transaction_status = "Refunded"
+        )
+        ELSE '0'
+    END AS refunded_date,
+    CASE
+        WHEN method_of_payment = 'Card' THEN (
+            SELECT exception_date
+            FROM chargeback
+            WHERE
+                CONCAT(left(chargeback.merchant_reference_id,3), "-", MID(chargeback.merchant_reference_id, 4,3), "0", MID(chargeback.merchant_reference_id,7,5), "-0",RIGHT(chargeback.merchant_reference_id,3)) = transaction.rtrn
+        )
+        WHEN method_of_payment = 'ACH' THEN (
+            SELECT last_status_updated
+            FROM status
+            WHERE
+                status.rtrn = transaction.rtrn
+                and status.transaction_status = "Returned"
+        )
+        ELSE '0'
+    END AS returned_date,
+'NA' as internalwire_date,
+'NA' as internationalwire_date
+from transaction;
