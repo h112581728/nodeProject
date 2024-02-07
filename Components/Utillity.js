@@ -1,4 +1,5 @@
-const columns = [
+//Define all the columns in transaction table
+const TransactionColumns = [
     "rtrn",
     "transaction_number",
     "transaction_date_pst",
@@ -64,6 +65,105 @@ const columns = [
     "timestamp"
 ];
 
+const StatusColumns = [
+    "rtrn",
+    "transaction_date_pst",
+    "transaction_status",
+    "last_status_updated",
+    "timestamp"
+];
+
+const CardPColumns = [
+    "iso",
+    "mid",
+    "reference_id",
+    "transaction_id",
+    "corresponding_id",
+    "approval_code",
+    "processed_date",
+    "created_date",	
+    "type",	
+    "source",	
+    "destination",	
+    "settlement_network", 
+    "last4",	
+    "status",	
+    "network_rc",	
+    "transaction_amount",	
+    "settled_amount",	
+    "tabaPay_fee",	
+    "network_fee",	
+    "interchange",	
+    "convenience_fee",	
+    "first_name",	
+    "last_name",	
+    "memo",	
+    "location_name",	
+    "location_address_1",	
+    "location_address_2",	
+    "location_city",	
+    "location_state",	
+    "location_zip",	
+    "avs",	
+    "cvv2",
+    "network_id",	
+    "settlement_date",	
+    "card_brand",	
+    "card_type",	
+    "interchange_category",	
+    "network_fee_codes",	
+    "bin",
+    "beneficiary_amount",	
+    "beneficiary_currency",	
+    "fx_rate_applied",	
+    "ofac_date",	
+    "ofac_code",	
+    "issuername",	
+    "issuercountry",	
+    "corrOFAC_date",	
+    "corrOFAC_code",	
+    "corresponding_FN",	
+    "corresponding_LN",	
+    "cardEntry",
+    "arn",	
+    "accountID",
+    "timestamp"
+];
+
+const ChargebackColumns = [
+    "iso",
+    "mid",
+    "merchant_reference_id",
+    "original_ransaction_id",
+    "exception_id",
+    "exception_type",	
+    "exception_code",	
+    "exception_description",	
+    "exception_date",	
+    "action_status",	
+    "status_date",	
+    "days_open",	
+    "network_transaction_id",	
+    "original_creation_date",	
+    "original_processed_date",	
+    "original_transaction_type",	
+    "exception_source",	
+    "exception_destination",	
+    "exception_network",	
+    "last_4",	
+    "original_settled_amount",	
+    "exception_settled_amount",	
+    "tabapay_fee",	
+    "network_fee",	
+    "interchange",	
+    "memo",	
+    "cb_id",	
+    "firstname",	
+    "lastname",
+    "network_id",
+    "timestamp"
+];
+
 const formatDate = (excelDate) => {
     // Excel date starts from 1900-01-01
     const excelStartDate = new Date(1899, 11, 30);
@@ -78,4 +178,4 @@ const formatDate = (excelDate) => {
     return formattedDate;
 };
 
-module.exports = [columns, formatDate]
+module.exports = [TransactionColumns, StatusColumns, CardPColumns, ChargebackColumns, formatDate]

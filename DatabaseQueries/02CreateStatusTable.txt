@@ -1,0 +1,8 @@
+CREATE TABLE status (
+    rtrn VARCHAR(255),		
+    transaction_date_pst DATE,	
+    transaction_status VARCHAR(255),	
+    last_status_updated DATE,
+    timestamp Timestamp, 
+    Primary Key(rtrn, transaction_status)
+)

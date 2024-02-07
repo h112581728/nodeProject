@@ -6,9 +6,28 @@
     <title>Upload Excel File</title>
 </head>
 <body>
-    <form action="http://localhost:3000/upload" method="post" enctype="multipart/form-data">
+    <div>
+        <h2>Upload Transaction Data</h2>
+    <form action="http://localhost:3000/transaction/upload" method="post" enctype="multipart/form-data">
         <input type="file" name="excelFile" accept=".xlsx, .xls">
         <button type="submit">Upload</button>
     </form>
+    </div>
+
+    <div>
+        <h2>Upload Tabapay Card File</h2>
+    <form action="http://localhost:3000/cardProcessed/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="excelFile" accept=".xlsx, .xls">
+        <button type="submit">Upload</button>
+    </form>
+    </div>
+
+    <div>
+        <h1>Upload Chargeback File</h1>
+    <form action="http://localhost:3000/chargeback/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="excelFile" accept=".xlsx, .xls">
+        <button type="submit">Upload</button>
+    </form>
+    </div>
 </body>
 </html>
