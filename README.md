@@ -1,3 +1,2 @@
-// Treasury Project
+Treasury Project
 
-// 
