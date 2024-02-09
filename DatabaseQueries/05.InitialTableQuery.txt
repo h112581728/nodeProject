@@ -36,7 +36,7 @@ SELECT
             FROM cardprocessed
             WHERE
                 CONCAT(left(cardprocessed.reference_id,3), "-", MID(cardprocessed.reference_id, 4,3), "0", MID(cardprocessed.reference_id,7,5), "-0",RIGHT(cardprocessed.reference_id,3)) = transaction.rtrn
-                and cardprocessed.`type` = 'Purchase-Void'
+                and (cardprocessed.`type` = 'Purchase-Void' or cardprocessed.`type` = 'Purchase-Reversal')
                 and cardprocessed.status = 'Complete'
         )
         WHEN method_of_payment = 'ACH' THEN (
