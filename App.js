@@ -1,5 +1,6 @@
-const express = require('express');
+
 const multer = require('multer');
+const express = require('express');
 const xlsx = require('xlsx');
 const mysql = require('mysql2/promise');
 const [TransactionColumns, StatusColumns, CardPColumns, ChargebackColumns, formatDate] = require('./Components/Utillity')
@@ -21,6 +22,7 @@ const dbConfig = {
     database: process.env.DB_DATABASE
 };
 
+console.log(dbConfig)
 //Route to upload transaction data
 app.post('/transaction/upload', upload.single('excelFile'), async (req, res) => {
     try {
