@@ -166,8 +166,8 @@ const ChargebackColumns = [
 
 const formatDate = (excelDate) => {
     // Excel date starts from 1900-01-01
-    if (String(excelDate).length < 9) {
-        const excelStartDate = new Date(1899, 11, 30);
+    if (String(excelDate).indexOf('.') > 0 || excelDate==="0" || String(excelDate).length === 5) {
+        const excelStartDate = new Date(1900, 0, 1);
         const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
         // Calculate the number of days from the Excel start date
@@ -180,7 +180,7 @@ const formatDate = (excelDate) => {
     } else if (String(excelDate).indexOf('/') > 0) {
         const [month, day, year] = excelDate.split("/");
         const formattedDate = `${year}-${month}-${day}`;
-        return formattedDate; 
+        return formattedDate;
     }
     return excelDate
 };

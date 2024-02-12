@@ -5,10 +5,12 @@ const mysql = require('mysql2/promise');
 const [TransactionColumns, StatusColumns, CardPColumns, ChargebackColumns, formatDate] = require('./Components/Utillity')
 const fs = require('fs');
 const path = require('path');
+const cors = require('cors')
 
 require('dotenv').config();
 
 const app = express();
+app.use(cors());
 const PORT = process.env.PORT || 3000;
 const upload = multer();
 
@@ -164,7 +166,29 @@ app.get('/transaction/view', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
         let myfile = fs.readFileSync(path.join(__dirname, 'DatabaseQueries', '05.InitialTableQuery.txt'), { encoding: 'utf8' });
-        const [rows] = await connection.query(`${myfile}`);
+        // const [rows] = await connection.query(`${myfile}`);
+
+        // Pagination parameters
+        const page = req.query.page || 1;
+        const pageSize = req.query.pageSize || 10000000; // Default page size
+
+        // Filtering parameters
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        const filterValue = req.query.filterValue;
+
+        let query = `SELECT * FROM (${myfile}) transaction_subquery`;
+
+        // Apply filtering
+        if (startDate && endDate) {
+            query += ` WHERE transaction_date_pst > DATE'${startDate}' AND transaction_date_pst <= DATE_ADD(DATE'${endDate}', INTERVAL 1 day)`
+        }
+        if (filterValue) {
+            query += ` AND (mto LIKE '%${filterValue}%' OR msb LIKE '%${filterValue}%')`;
+        }
+
+        query += ` ORDER BY transaction_date_pst DESC LIMIT ${(page - 1) * pageSize}, ${pageSize}`;
+        const [rows] = await connection.query(`${query}`);
         await connection.end();
         res.status(200).json(rows);
     } catch (error) {
@@ -172,11 +196,6 @@ app.get('/transaction/view', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
-
-
-
-
-
 
 // Start the server
 app.listen(PORT, () => {

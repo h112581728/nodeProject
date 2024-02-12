@@ -1,17 +1,6 @@
-SELECT
+WITH final as (SELECT
     transaction.rtrn,
     transaction.transaction_date_pst,
-    transaction.transaction_status,
-    transaction.transaction_amount_in_us_dollars,
-    transaction.transaction_fee_or_commission_USD,
-    transaction.mto,
-    transaction.msb,
-    transaction.method_of_payment,
-    transaction.debit_card_issuing_network,
-    transaction.regulated,
-    transaction.method_of_payout,
-    transaction.debit_card_network_fees,
-    transaction.debit_card_interchange_fees,
     CASE
         WHEN method_of_payment = 'Card' THEN (
             SELECT settlement_date
@@ -64,6 +53,30 @@ SELECT
         )
         ELSE '0'
     END AS returned_date,
-'NA' as internalwire_date,
-'NA' as internationalwire_date
-from transaction;
+'' as internalwire_date,
+'' as internationalwire_date,
+'' as reversal_date,
+transaction.transaction_paid_date,
+ transaction.transaction_status,
+    transaction.mto,
+    transaction.msb,
+    transaction.method_of_payment,
+    transaction.debit_card_issuing_network,
+    transaction.regulated,
+    transaction.method_of_payout,
+    transaction.transaction_amount_in_us_dollars,
+    transaction.transaction_fee_or_commission_USD,
+    transaction.debit_card_network_fees,
+    transaction.debit_card_interchange_fees,
+settled_amount,
+network_fee,
+interchange
+from transaction
+LEFT JOIN cardprocessed
+ON transaction.rtrn = CONCAT(left(cardprocessed.reference_id,3), "-", MID(cardprocessed.reference_id, 4,3), "0", MID(cardprocessed.reference_id,7,5), "-0",RIGHT(cardprocessed.reference_id,3)))
+SELECT *, 
+CASE when method_of_payment = 'ACH' and processed_date IS NOT NULL THEN transaction_amount_in_us_dollars
+when method_of_payment = 'Card' and processed_date IS NOT NULL THEN settled_amount + network_fee + interchange
+ELSE 0
+END as wallet_balance
+FROM final
