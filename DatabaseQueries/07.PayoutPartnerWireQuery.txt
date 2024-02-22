@@ -53,9 +53,9 @@ WITH final as (SELECT
         )
         ELSE '0'
     END AS returned_date,
-(SELECT wire_date FROM machpay_wire WHERE machpay_wire.rtrn = transaction.rtrn) as internalwire_date,
-(SELECT wire_date FROM payout_partner_wire WHERE payout_partner_wire.rtrn = transaction.rtrn) as internationalwire_date,
-'' as reversal_date,
+    (SELECT wire_date FROM machpay_wire WHERE machpay_wire.rtrn = transaction.rtrn) as internalwire_date,
+    (SELECT wire_date FROM payout_partner_wire WHERE payout_partner_wire.rtrn = transaction.rtrn) as internationalwire_date,
+    '' as reversal_date,
 transaction.transaction_paid_date,
  transaction.transaction_status,
     transaction.mto,
@@ -74,9 +74,10 @@ interchange
 from transaction
 LEFT JOIN cardprocessed
 ON transaction.rtrn = CONCAT(left(cardprocessed.reference_id,3), "-", MID(cardprocessed.reference_id, 4,3), "0", MID(cardprocessed.reference_id,7,5), "-0",RIGHT(cardprocessed.reference_id,3)))
-SELECT *, 
+SELECT rtrn, 'NOT_WIRED' as status, transaction_date_pst, processed_date, mto, msb, method_of_payment,transaction_amount_in_us_dollars, 
 CASE when method_of_payment = 'ACH' and processed_date IS NOT NULL THEN transaction_amount_in_us_dollars
 when method_of_payment = 'Card' and processed_date IS NOT NULL THEN settled_amount + network_fee + interchange
 ELSE 0
 END as wallet_balance
 FROM final
+WHERE transaction_status = "Processed" and processed_date IS NOT NULL AND (transaction_paid_date IS NOT NULL and transaction_paid_date != DATE'1899-12-30') AND internalwire_date IS NOT NULL AND internationalwire_date IS NULL

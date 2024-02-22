@@ -164,6 +164,16 @@ const ChargebackColumns = [
     "timestamp"
 ];
 
+
+const MachpayWireColumns = [
+    "wire_id",
+    "rtrn",
+    "wire_date",
+    "wire_amount",
+    "remarks",
+    "time_stamp"
+];
+
 const formatDate = (excelDate) => {
     // Excel date starts from 1900-01-01
     if (String(excelDate).indexOf('.') > 0 || excelDate==="0" || String(excelDate).length === 5) {
@@ -185,4 +195,4 @@ const formatDate = (excelDate) => {
     return excelDate
 };
 
-module.exports = [TransactionColumns, StatusColumns, CardPColumns, ChargebackColumns, formatDate]
+module.exports = [TransactionColumns, StatusColumns, CardPColumns, ChargebackColumns, formatDate , MachpayWireColumns]

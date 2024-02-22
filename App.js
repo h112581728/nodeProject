@@ -3,17 +3,19 @@ const multer = require('multer');
 const express = require('express');
 const xlsx = require('xlsx');
 const mysql = require('mysql2/promise');
-const [TransactionColumns, StatusColumns, CardPColumns, ChargebackColumns, formatDate] = require('./Components/Utillity')
+const [TransactionColumns, StatusColumns, CardPColumns, ChargebackColumns, formatDate, MachpayWireColumns] = require('./Components/Utillity')
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors')
 
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, ".env"), override: true, debug: true });
 
 const app = express();
 app.use(cors());
 const PORT = process.env.PORT || 3000;
 const upload = multer();
+const bodyParser = require('body-parser');
+app.use(bodyParser.json());
 
 const dbConfig = {
     host: process.env.DB_HOST,
@@ -22,7 +24,6 @@ const dbConfig = {
     database: process.env.DB_DATABASE
 };
 
-console.log(dbConfig)
 //Route to upload transaction data
 app.post('/transaction/upload', upload.single('excelFile'), async (req, res) => {
     try {
@@ -163,12 +164,55 @@ app.post('/chargeback/upload', upload.single('excelFile'), async (req, res) => {
     }
 });
 
+app.post('/machpay_wire/upload', async (req, res) => {
+    try {
+        const { wireId: wire_id, wireDate: wire_date, specialRemarks: remarks, data } = req.body;
+        const connection = await mysql.createConnection(dbConfig);
+
+        const formattedData = data.map(({ rtrn, wallet_balance }) => [
+            wire_id, rtrn, wire_date, wallet_balance, remarks, new Date().toISOString().slice(0, 19).replace('T', ' ')
+        ]);
+
+        const queryValues = formattedData.map(rows => `(${rows.map(value => `"${value}"`).join(', ')})`).join(', ');
+        const updateClause = MachpayWireColumns.map(col => `${col}=VALUES(${col})`).join(', ');
+        const query = `INSERT INTO machpay_wire VALUES ${queryValues} ON DUPLICATE KEY UPDATE ${updateClause};`;
+        await connection.query(query);
+        await connection.end();
+        res.status(200).send('Data inserted or updated successfully.');
+    } catch (error) {
+        console.error('Error inserting or updating data:', error);
+        res.status(500).send('Internal Server Error');
+    }
+
+});
+
+app.post('/payout_partner_wire/upload', async (req, res) => {
+    try {
+        const { wireId: wire_id, wireDate: wire_date, specialRemarks: remarks, data } = req.body;
+        const connection = await mysql.createConnection(dbConfig);
+
+        const formattedData = data.map(({ rtrn, wallet_balance }) => [
+            wire_id, rtrn, wire_date, wallet_balance, remarks, new Date().toISOString().slice(0, 19).replace('T', ' ')
+        ]);
+
+        const queryValues = formattedData.map(rows => `(${rows.map(value => `"${value}"`).join(', ')})`).join(', ');
+        const updateClause = MachpayWireColumns.map(col => `${col}=VALUES(${col})`).join(', ');
+        const query = `INSERT INTO payout_partner_wire VALUES ${queryValues} ON DUPLICATE KEY UPDATE ${updateClause};`;
+        await connection.query(query);
+        await connection.end();
+        res.status(200).send('Data inserted or updated successfully.');
+    } catch (error) {
+        console.error('Error inserting or updating data:', error);
+        res.status(500).send('Internal Server Error');
+    }
+
+});
+
 // Route to load a specific table from the database
 app.get('/transaction/view', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
         let myfile = fs.readFileSync(path.join(__dirname, 'DatabaseQueries', '05.InitialTableQuery.txt'), { encoding: 'utf8' });
-        // const [rows] = await connection.query(`${myfile}`);
 
         // Pagination parameters
         const page = req.query.page || 1;
@@ -185,11 +229,124 @@ app.get('/transaction/view', async (req, res) => {
         if (startDate && endDate) {
             query += ` WHERE transaction_date_pst > DATE'${startDate}' AND transaction_date_pst <= DATE_ADD(DATE'${endDate}', INTERVAL 1 day)`
         }
+
+
         if (filterValue) {
-            query += ` AND (mto LIKE '%${filterValue}%' OR msb LIKE '%${filterValue}%')`;
+            if (!(startDate && endDate)) {
+                query += ` WHERE (mto LIKE '%${filterValue}%' OR msb LIKE '%${filterValue}%')`;
+            }
+            else {
+                query += ` AND (mto LIKE '%${filterValue}%' OR msb LIKE '%${filterValue}%')`;
+            }
         }
 
         query += ` ORDER BY transaction_date_pst DESC LIMIT ${(page - 1) * pageSize}, ${pageSize}`;
+
+        const [rows] = await connection.query(`${query}`);
+        await connection.end();
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('Error loading data:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+app.get('/machpay_wire/view', async (req, res) => {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        let myfile = fs.readFileSync(path.join(__dirname, 'DatabaseQueries', '06.MachpayWireQuery.txt'), { encoding: 'utf8' });
+
+        // Pagination parameters
+        const page = req.query.page || 1;
+        const pageSize = req.query.pageSize || 10000000; // Default page size
+
+        // Filtering parameters
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        const filterValue = req.query.filterValue;
+
+        let query = `SELECT * FROM (${myfile}) transaction_subquery`;
+
+        // Apply filtering
+        if (startDate && endDate) {
+            query += ` WHERE transaction_date_pst > DATE'${startDate}' AND transaction_date_pst <= DATE_ADD(DATE'${endDate}', INTERVAL 1 day)`
+        }
+
+
+        if (filterValue) {
+            if (!(startDate && endDate)) {
+                query += ` WHERE (mto LIKE '%${filterValue}%' OR msb LIKE '%${filterValue}%')`;
+            }
+            else {
+                query += ` AND (mto LIKE '%${filterValue}%' OR msb LIKE '%${filterValue}%')`;
+            }
+        }
+
+        const [rows] = await connection.query(`${query}`);
+        await connection.end();
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('Error loading data:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+
+app.get('/payout_partner_wire/view', async (req, res) => {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        let myfile = fs.readFileSync(path.join(__dirname, 'DatabaseQueries', '07.PayoutPartnerWireQuery.txt'), { encoding: 'utf8' });
+
+        // Pagination parameters
+        const page = req.query.page || 1;
+        const pageSize = req.query.pageSize || 10000000; // Default page size
+
+        // Filtering parameters
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        const filterValue = req.query.filterValue;
+
+        let query = `SELECT * FROM (${myfile}) transaction_subquery`;
+
+        // Apply filtering
+        if (startDate && endDate) {
+            query += ` WHERE transaction_date_pst > DATE'${startDate}' AND transaction_date_pst <= DATE_ADD(DATE'${endDate}', INTERVAL 1 day)`
+        }
+
+
+        if (filterValue) {
+            if (!(startDate && endDate)) {
+                query += ` WHERE (mto LIKE '%${filterValue}%' OR msb LIKE '%${filterValue}%')`;
+            }
+            else {
+                query += ` AND (mto LIKE '%${filterValue}%' OR msb LIKE '%${filterValue}%')`;
+            }
+        }
+
+        const [rows] = await connection.query(`${query}`);
+        await connection.end();
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('Error loading data:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+
+app.get('/wire_batch/view', async (req, res) => {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+       
+        // Pagination parameters
+        const page = req.query.page || 1;
+        const pageSize = req.query.pageSize || 10000000; // Default page size
+
+        // Filtering parameters
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        const filterValue = req.query.filterValue;
+
+        let query = `SELECT * FROM payout_partner_wire`;
         const [rows] = await connection.query(`${query}`);
         await connection.end();
         res.status(200).json(rows);
