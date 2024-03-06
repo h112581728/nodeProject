@@ -1,82 +1,145 @@
-WITH final as (SELECT
-    transaction.rtrn,
-    transaction.transaction_date_pst,
+WITH
+    final as (
+        SELECT
+            transaction.rtrn, transaction.transaction_date_pst, CASE
+                WHEN method_of_payment = 'Card' THEN (
+                    SELECT settlement_date
+                    FROM cardprocessed
+                    WHERE
+                        CONCAT(
+                            left(cardprocessed.reference_id, 3), "-", MID(
+                                cardprocessed.reference_id, 4, 3
+                            ), "0", MID(
+                                cardprocessed.reference_id, 7, 5
+                            ), "-0", RIGHT(cardprocessed.reference_id, 3)
+                        ) = transaction.rtrn
+                        and cardprocessed.type = 'Purchase'
+                        and cardprocessed.status = 'Complete'
+                )
+                WHEN method_of_payment = 'ACH' THEN (
+                    SELECT last_status_updated
+                    FROM status
+                    WHERE
+                        status.rtrn = transaction.rtrn
+                        and status.transaction_status = "Processed"
+                )
+                ELSE '0'
+            END AS processed_date, CASE
+                WHEN method_of_payment = 'Card' THEN (
+                    SELECT settlement_date
+                    FROM cardprocessed
+                    WHERE
+                        CONCAT(
+                            left(cardprocessed.reference_id, 3), "-", MID(
+                                cardprocessed.reference_id, 4, 3
+                            ), "0", MID(
+                                cardprocessed.reference_id, 7, 5
+                            ), "-0", RIGHT(cardprocessed.reference_id, 3)
+                        ) = transaction.rtrn
+                        and (
+                            cardprocessed.`type` = 'Purchase-Void'
+                            or cardprocessed.`type` = 'Purchase-Reversal'
+                        )
+                        and cardprocessed.status = 'Complete'
+                )
+                WHEN method_of_payment = 'ACH' THEN (
+                    SELECT last_status_updated
+                    FROM status
+                    WHERE
+                        status.rtrn = transaction.rtrn
+                        and status.transaction_status = "Refunded"
+                )
+                ELSE '0'
+            END AS refunded_date, CASE
+                WHEN method_of_payment = 'Card' THEN (
+                    SELECT exception_date
+                    FROM chargeback
+                    WHERE
+                        CONCAT(
+                            left(
+                                chargeback.merchant_reference_id, 3
+                            ), "-", MID(
+                                chargeback.merchant_reference_id, 4, 3
+                            ), "0", MID(
+                                chargeback.merchant_reference_id, 7, 5
+                            ), "-0", RIGHT(
+                                chargeback.merchant_reference_id, 3
+                            )
+                        ) = transaction.rtrn
+                )
+                WHEN method_of_payment = 'ACH' THEN (
+                    SELECT last_status_updated
+                    FROM status
+                    WHERE
+                        status.rtrn = transaction.rtrn
+                        and status.transaction_status = "Returned"
+                )
+                ELSE '0'
+            END AS returned_date, (
+                SELECT wire_date
+                FROM machpay_wire
+                WHERE
+                    machpay_wire.rtrn = transaction.rtrn and wire_amount > 0
+            ) AS internalwire_date, (
+                SELECT wire_date
+                FROM payout_partner_wire
+                WHERE
+                    payout_partner_wire.rtrn = transaction.rtrn and wire_amount > 0
+            ) AS internationalwire_date, 
+            (
+                SELECT wire_date
+                FROM machpay_wire
+                WHERE
+                    machpay_wire.rtrn = transaction.rtrn and wire_amount < 0
+            ) AS internalwire_reversal_date,
+            (
+                SELECT wire_date
+                FROM payout_partner_wire
+                WHERE
+                    payout_partner_wire.rtrn = transaction.rtrn and wire_amount < 0
+            ) AS internationalwire_reversal_date,
+            transaction.transaction_paid_date, 
+            transaction.transaction_status, 
+            transaction.mto, 
+            transaction.msb, 
+            transaction.method_of_payment, 
+            transaction.debit_card_issuing_network, 
+            transaction.regulated, 
+            transaction.method_of_payout, 
+            transaction.transaction_amount_in_us_dollars, 
+            transaction.transaction_fee_or_commission_USD, 
+            transaction.debit_card_network_fees, 
+            transaction.debit_card_interchange_fees, 
+            settled_amount, 
+            network_fee, 
+            interchange
+        from transaction
+            LEFT JOIN cardprocessed ON transaction.rtrn = CONCAT(
+                left(cardprocessed.reference_id, 3), "-", MID(
+                    cardprocessed.reference_id, 4, 3
+                ), "0", MID(
+                    cardprocessed.reference_id, 7, 5
+                ), "-0", RIGHT(cardprocessed.reference_id, 3)
+            )
+    ),
+final2 as (
+    SELECT *,
     CASE
-        WHEN method_of_payment = 'Card' THEN (
-            SELECT settlement_date
-            FROM cardprocessed
-            WHERE
-                CONCAT(left(cardprocessed.reference_id,3), "-", MID(cardprocessed.reference_id, 4,3), "0", MID(cardprocessed.reference_id,7,5), "-0",RIGHT(cardprocessed.reference_id,3)) = transaction.rtrn
-                and cardprocessed.type = 'Purchase'
-                and cardprocessed.status = 'Complete'
-        )
-        WHEN method_of_payment = 'ACH' THEN (
-            SELECT last_status_updated
-            FROM status
-            WHERE
-                status.rtrn = transaction.rtrn
-                and status.transaction_status = "Processed"
-        )
-        ELSE '0'
-    END AS processed_date,
-    CASE
-        WHEN method_of_payment = 'Card' THEN (
-            SELECT settlement_date
-            FROM cardprocessed
-            WHERE
-                CONCAT(left(cardprocessed.reference_id,3), "-", MID(cardprocessed.reference_id, 4,3), "0", MID(cardprocessed.reference_id,7,5), "-0",RIGHT(cardprocessed.reference_id,3)) = transaction.rtrn
-                and (cardprocessed.`type` = 'Purchase-Void' or cardprocessed.`type` = 'Purchase-Reversal')
-                and cardprocessed.status = 'Complete'
-        )
-        WHEN method_of_payment = 'ACH' THEN (
-            SELECT last_status_updated
-            FROM status
-            WHERE
-                status.rtrn = transaction.rtrn
-                and status.transaction_status = "Refunded"
-        )
-        ELSE '0'
-    END AS refunded_date,
-    CASE
-        WHEN method_of_payment = 'Card' THEN (
-            SELECT exception_date
-            FROM chargeback
-            WHERE
-                CONCAT(left(chargeback.merchant_reference_id,3), "-", MID(chargeback.merchant_reference_id, 4,3), "0", MID(chargeback.merchant_reference_id,7,5), "-0",RIGHT(chargeback.merchant_reference_id,3)) = transaction.rtrn
-        )
-        WHEN method_of_payment = 'ACH' THEN (
-            SELECT last_status_updated
-            FROM status
-            WHERE
-                status.rtrn = transaction.rtrn
-                and status.transaction_status = "Returned"
-        )
-        ELSE '0'
-    END AS returned_date,
-(SELECT wire_date FROM machpay_wire WHERE machpay_wire.rtrn = transaction.rtrn) as internalwire_date,
-(SELECT wire_date FROM payout_partner_wire WHERE payout_partner_wire.rtrn = transaction.rtrn) as internationalwire_date,
-'' as reversal_date,
-transaction.transaction_paid_date,
- transaction.transaction_status,
-    transaction.mto,
-    transaction.msb,
-    transaction.method_of_payment,
-    transaction.debit_card_issuing_network,
-    transaction.regulated,
-    transaction.method_of_payout,
-    transaction.transaction_amount_in_us_dollars,
-    transaction.transaction_fee_or_commission_USD,
-    transaction.debit_card_network_fees,
-    transaction.debit_card_interchange_fees,
-settled_amount,
-network_fee,
-interchange
-from transaction
-LEFT JOIN cardprocessed
-ON transaction.rtrn = CONCAT(left(cardprocessed.reference_id,3), "-", MID(cardprocessed.reference_id, 4,3), "0", MID(cardprocessed.reference_id,7,5), "-0",RIGHT(cardprocessed.reference_id,3)))
-SELECT *, 
-CASE when method_of_payment = 'ACH' and processed_date IS NOT NULL THEN transaction_amount_in_us_dollars
-when method_of_payment = 'Card' and processed_date IS NOT NULL THEN settled_amount + network_fee + interchange
-ELSE 0
-END as wallet_balance
-FROM final
+        when method_of_payment = 'ACH'
+        and processed_date IS NOT NULL THEN transaction_amount_in_us_dollars
+        when method_of_payment = 'Card'
+        and processed_date IS NOT NULL THEN settled_amount + network_fee + interchange
+        ELSE 0
+    END as wallet_balance,
+       CASE 
+            WHEN (refunded_date IS NOT NULL or returned_date IS NOT NULL) AND (internalwire_date IS NOT NULL) AND (internalwire_reversal_date IS NULL) THEN "TO_BE_REVERSED"
+            WHEN (refunded_date IS NOT NULL or returned_date IS NOT NULL) AND (internalwire_date IS NOT NULL) AND (internalwire_reversal_date IS NOT NULL) THEN "REVERSED"
+            END AS internalwire_reversal_status, 
+       CASE 
+            WHEN (refunded_date IS NOT NULL or returned_date IS NOT NULL) AND (internationalwire_date IS NOT NULL) AND (internationalwire_reversal_date IS NULL) THEN "TO_BE_REVERSED"
+            WHEN (refunded_date IS NOT NULL or returned_date IS NOT NULL) AND (internationalwire_date IS NOT NULL) AND (internationalwire_reversal_date IS NOT NULL) THEN "REVERSED"
+            END AS internationalwire_reversal_status 
+FROM final)
+SELECT * FROM final2
+
+
