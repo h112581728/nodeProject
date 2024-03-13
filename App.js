@@ -39,6 +39,7 @@ app.post('/transaction/upload', upload.single('excelFile'), async (req, res) => 
             }
 
             for (let i = 0; i < row.length; i++) {
+                row[i] = row[i].replace(',','');
                 if (row[i] === null || row[i] === "" || row[i] === undefined) {
                     row[i] = '0';
                 }
@@ -240,7 +241,7 @@ app.get('/transaction/view', async (req, res) => {
             }
         }
 
-        query += ` ORDER BY transaction_date_pst DESC LIMIT ${(page - 1) * pageSize}, ${pageSize}`;
+        query += ` ORDER BY transaction_date_pst DESC, rtrn DESC LIMIT  ${pageSize} OFFSET ${(page - 1) * pageSize}`;
 
         const [rows] = await connection.query(`${query}`);
         await connection.end();
@@ -257,8 +258,8 @@ app.get('/machpay_wire/view', async (req, res) => {
         let myfile = fs.readFileSync(path.join(__dirname, 'DatabaseQueries', '06.MachpayWireQuery.txt'), { encoding: 'utf8' });
 
         // Pagination parameters
-        const page = req.query.page || 1;
-        const pageSize = req.query.pageSize || 10000000; // Default page size
+        const page = req.query.page || 0;
+        const pageSize = req.query.pageSize || 100; // Default page size
 
         // Filtering parameters
         const startDate = req.query.startDate;
@@ -282,6 +283,8 @@ app.get('/machpay_wire/view', async (req, res) => {
             }
         }
 
+
+        query += ` ORDER BY transaction_date_pst DESC, rtrn DESC LIMIT  ${pageSize} OFFSET ${(page - 1) * pageSize}`;
         const [rows] = await connection.query(`${query}`);
         await connection.end();
         res.status(200).json(rows);

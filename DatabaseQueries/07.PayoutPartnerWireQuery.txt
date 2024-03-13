@@ -141,7 +141,7 @@ final2 as (
             END AS internationalwire_reversal_status 
 FROM final)
 SELECT * FROM final2
-WHERE transaction_status = "Processed" and processed_date IS NOT NULL AND (transaction_paid_date IS NOT NULL and transaction_paid_date != DATE'1899-12-30') AND internationalwire_date IS NULL
+WHERE processed_date IS NOT NULL and returned_date IS NULL and refunded_date IS NULL AND (transaction_paid_date IS NOT NULL and transaction_paid_date != DATE'1899-12-30') AND internationalwire_date IS NULL and internalwire_date IS NOT NULL
 UNION ALL
 SELECT rtrn, transaction_date_pst, processed_date, refunded_date, returned_date, internalwire_date, internationalwire_date, internalwire_reversal_date, internationalwire_reversal_date, transaction_paid_date, transaction_status, mto, msb, method_of_payment, debit_card_issuing_network, regulated, method_of_payout, transaction_amount_in_us_dollars, `transaction_fee_or_commission_USD`, debit_card_network_fees, debit_card_interchange_fees, settled_amount, network_fee, interchange, -1*wallet_balance as a, internalwire_reversal_status, internationalwire_reversal_status FROM final2
 WHERE internationalwire_reversal_status = "TO_BE_REVERSED"

@@ -1,4 +1,4 @@
-SELECT * FROM (WITH
+CREATE VIEW transaction_table AS (WITH
     final as (
         SELECT
             transaction.rtrn, transaction.transaction_date_pst, CASE
@@ -139,9 +139,4 @@ final2 as (
             WHEN (refunded_date IS NOT NULL or returned_date IS NOT NULL) AND (internationalwire_date IS NOT NULL) AND (internationalwire_reversal_date IS NULL) THEN "TO_BE_REVERSED"
             WHEN (refunded_date IS NOT NULL or returned_date IS NOT NULL) AND (internationalwire_date IS NOT NULL) AND (internationalwire_reversal_date IS NOT NULL) THEN "REVERSED"
             END AS internationalwire_reversal_status 
-FROM final)
-SELECT * FROM final2
-WHERE processed_date IS NOT NULL and returned_date IS NULL and refunded_date is NULL AND internalwire_date IS NULL
-UNION ALL
-SELECT rtrn, transaction_date_pst, processed_date, refunded_date, returned_date, internalwire_date, internationalwire_date, internalwire_reversal_date, internationalwire_reversal_date, transaction_paid_date, transaction_status, mto, msb, method_of_payment, debit_card_issuing_network, regulated, method_of_payout, transaction_amount_in_us_dollars, `transaction_fee_or_commission_USD`, debit_card_network_fees, debit_card_interchange_fees, settled_amount, network_fee, interchange, -1*wallet_balance as a, internalwire_reversal_status, internationalwire_reversal_status FROM final2
-WHERE internalwire_reversal_status = "TO_BE_REVERSED") tab2342
+FROM final) SELECT * FROM final2)
